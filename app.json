@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "PersonalList",
+    "slug": "PersonalList",
+    "version": "1.1.2",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mikige.personallist",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Esta aplicación utiliza Face ID para proporcionar una autenticación segura."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptative-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "newArchEnabled":true,
+      "package": "com.mikige.personallist",
+      "permissions": [
+        "USE_FINGERPRINT",
+        "USE_BIOMETRIC"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ed55d0b3-f85e-4d28-816c-14e2c8136431"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ed55d0b3-f85e-4d28-816c-14e2c8136431"
+    }
+  }
+}
