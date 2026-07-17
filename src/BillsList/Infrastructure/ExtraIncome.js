@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, FlatList, ScrollView } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TextInput, FlatList } from 'react-native';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
@@ -9,7 +9,7 @@ import db from '../../Config/firebase';
 import { useUser } from '../../Login/Presentation/Contexts/UserContext';
 import { onSnapshot, collection } from 'firebase/firestore';
 
-const ExtraIncome = ({ year, month, updateAmounts }) => {
+const ExtraIncome = ({ year, month, updateAmounts, color = "black", style }) => {
   const { user } = useUser();
   const [modalVisible, setModalVisible] = useState(false);
   const [amount, setAmount] = useState('');
@@ -57,8 +57,8 @@ const ExtraIncome = ({ year, month, updateAmounts }) => {
 
   return (
     <View >
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.iconButton}>
-        <FontAwesome6 name="money-bill-trend-up" size={18} color="black" />
+      <TouchableOpacity onPress={() => setModalVisible(true)} style={[styles.iconButton, style]}>
+        <FontAwesome6 name="money-bill-trend-up" size={18} color={color} />
       </TouchableOpacity>
 
       <Modal
@@ -83,22 +83,27 @@ const ExtraIncome = ({ year, month, updateAmounts }) => {
                 )}
                 contentContainerStyle={styles.flatListContent}
               />
-            <View style={styles.inputRow}>
+            <View style={styles.inputSection}>
+              <Text style={styles.label}>Importe</Text>
               <TextInput
                 style={styles.inputAmount}
-                placeholder="Importe"
+                placeholder="0,00"
+                placeholderTextColor="rgba(255, 255, 255, 0.3)"
                 keyboardType="numeric"
                 value={amount}
                 onChangeText={setAmount}
               />
+              <Text style={styles.label}>Descripción</Text>
               <TextInput
                 style={styles.inputDescription}
-                placeholder="Descripción"
+                placeholder="Ej: Devolución, bonus..."
+                placeholderTextColor="rgba(255, 255, 255, 0.3)"
                 value={description}
                 onChangeText={setDescription}
               />
               <TouchableOpacity onPress={addItem} style={styles.addButton}>
                 <MaterialIcons name="add" size={24} color="#fff" />
+                <Text style={styles.addButtonText}>Añadir</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>

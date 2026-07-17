@@ -1,0 +1,24 @@
+# Reglas del Proyecto: PersonalList
+- **Tecnología principal:** Aplicación móvil desarrollada con Expo SDK 52 (React Native 0.76.5).
+- **Arquitectura:** El proyecto sigue una arquitectura limpia dividida en carpetas (Domain, Infrastructure, Presentation). Las vistas están en Presentation.
+- **Estilos:** Usamos `react-native-paper`, `react-native-elements` y `StyleSheet` nativos de React Native.
+- **REGLA CRÍTICA:** Está estrictamente PROHIBIDO usar componentes de `@mui/material` o `@emotion` en las pantallas móviles. Esas dependencias son para web y rompen la aplicación en iOS/Android.
+- **Flujo de trabajo:** Antes de realizar un cambio visual grande, lee el archivo correspondiente, propón la estructura estética y espera a que el usuario dé el visto bueno.
+
+## Reglas de Arquitectura por Carpetas
+
+### 1. Capa de Presentación (presentation/)
+- **Propósito:** Solo contiene componentes visuales, pantallas y lógica de interfaz de usuario.
+- **Reglas de dependencia:** Las pantallas solo pueden comunicarse con la capa de `Domain` (para usar casos de uso, interfaces o entidades) o recibir datos a través de hooks/controladores.
+- **Prohibido:** No se permite realizar peticiones HTTP directas (Axios/Fetch) ni consultas a Firebase/Firestore desde esta carpeta. Esa lógica pertenece a Infrastructure.
+- **Componentes:** Usar componentes nativos de `react-native-paper` o `react-native-elements`. Evitar lógica compleja de negocio aquí.
+
+### 2. Capa de Infraestructura (infrastructure/)
+- **Propósito:** Implementaciones de servicios externos, llamadas a APIs, base de datos (Firestore/MongoDB) y almacenamiento local (AsyncStorage).
+- **Reglas de dependencia:** Aquí es donde se configuran los repositorios reales que implementan las interfaces del Domain.
+- **Prohibido:** Está estrictamente prohibido importar cualquier componente de React Native o de UI (`react-native-paper`, `StyleSheet`, etc.) en esta carpeta. Esta capa no sabe nada de la interfaz visual.
+
+### 3. Capa de Dominio (domain/)
+- **Propósito:** El núcleo de la aplicación. Contiene las reglas de negocio, entidades de datos y las interfaces de los repositorios.
+- **Reglas de dependencia:** Esta capa debe ser **100% pura**. No puede depender de ninguna de las otras dos capas (Presentation o Infrastructure).
+- **Prohibido:** No se pueden importar librerías externas de bases de datos (Firebase, MongoDB), ni de red (Axios), ni de UI. Todo debe definirse mediante interfaces o tipos de datos puros de TypeScript/JavaScript.

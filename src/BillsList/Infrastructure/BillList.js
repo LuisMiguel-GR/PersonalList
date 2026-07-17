@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FlatList, View, Text, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
+import { FlatList, View, Text, ActivityIndicator, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import Bill from './Bill';
 import db from '../../Config/firebase';
 import { doc, collection, getDocs, getDoc, onSnapshot } from 'firebase/firestore';
@@ -7,18 +7,31 @@ import { useUser } from '../../Login/Presentation/Contexts/UserContext';
 import stylesBillsList from '../Presentation/Styles/stylesBillsList';
 import BillsScreenLogic from '../Domain/Hooks/BillsScreenLogic';
 import loadSunshineFont from './../../Config/useFonts';
-import Icon from 'react-native-vector-icons/FontAwesome';
-import { Menu } from 'react-native-paper';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ExtraIncome from './ExtraIncome';
 
-const BillList = ({ year, name, description, amount, createdAt, clearModalData }) => {
+const monthTranslations = {
+  january: "Enero",
+  february: "Febrero",
+  march: "Marzo",
+  april: "Abril",
+  may: "Mayo",
+  june: "Junio",
+  july: "Julio",
+  august: "Agosto",
+  september: "Septiembre",
+  october: "Octubre",
+  november: "Noviembre",
+  december: "Diciembre"
+};
+
+const BillList = ({ year, name, description, amount, createdAt, clearModalData, onMonthChange }) => {
   const { user } = useUser();
   const [isLoading, setIsLoading] = useState(true);
   const [monthsData, setMonthsData] = useState([]);
-  const [expandedMonths, setExpandedMonths] = useState({});
   const [currentMonthId, setCurrentMonthId] = useState(null);
-  const [isBillAdded, setIsBillAdded] = useState(false);
-  const [menuVisible, setMenuVisible] = useState([]);
+  const [sortModalVisible, setSortModalVisible] = useState(false);
 
   const { handleAddBill, handleSort } = BillsScreenLogic();
 
@@ -27,15 +40,10 @@ const BillList = ({ year, name, description, amount, createdAt, clearModalData }
   }, []);
 
   useEffect(() => {
-    if (isBillAdded) {
-      // handleAddBillList();
-    }
-  }, [isBillAdded]);
-
-  useEffect(() => {
     const fetchMonthsData = async () => {
       try {
         if (!user || !year) return;
+        setIsLoading(true);
 
         const monthsCollectionRef = collection(db, `users/${user.uid}/general-list/years/years-list/${year}/months`);
         const monthsSnapshot = await getDocs(monthsCollectionRef);
@@ -46,7 +54,7 @@ const BillList = ({ year, name, description, amount, createdAt, clearModalData }
           return;
         }
 
-        const monthsData = monthsSnapshot.docs.map(monthDoc => ({
+        const months = monthsSnapshot.docs.map(monthDoc => ({
           id: monthDoc.id,
           data: monthDoc.data(),
           bills: [],
@@ -57,8 +65,21 @@ const BillList = ({ year, name, description, amount, createdAt, clearModalData }
           "january", "february", "march", "april", "may", "june",
           "july", "august", "september", "october", "november", "december"
         ];
-        const orderedMonthsData = monthsData.sort((a, b) => {
-          return monthNames.indexOf(a.data.name.toLowerCase()) - monthNames.indexOf(b.data.name.toLowerCase());
+
+        const currentYear = new Date().getFullYear().toString();
+        const currentMonthIndex = new Date().getMonth();
+
+        const orderedMonthsData = months.sort((a, b) => {
+          const aIndex = monthNames.indexOf(a.data.name.toLowerCase());
+          const bIndex = monthNames.indexOf(b.data.name.toLowerCase());
+
+          if (year === currentYear) {
+            const distanceFromCurrent = (index) =>
+              index <= currentMonthIndex ? currentMonthIndex - index : index + 12;
+            return distanceFromCurrent(aIndex) - distanceFromCurrent(bIndex);
+          }
+
+          return bIndex - aIndex;
         });
 
         setMonthsData(orderedMonthsData);
@@ -66,10 +87,13 @@ const BillList = ({ year, name, description, amount, createdAt, clearModalData }
         const currentMonthName = monthNames[new Date().getMonth()];
         const currentMonth = orderedMonthsData.find(month => month.data.name.toLowerCase() === currentMonthName);
 
-        if (currentMonth) {
-          setCurrentMonthId(currentMonth.id);
-          setExpandedMonths({ [currentMonth.id]: true });
-          await fetchBillsForMonth(currentMonth.id, orderedMonthsData);
+        const initialMonthId = currentMonth ? currentMonth.id : orderedMonthsData[0]?.id;
+        if (initialMonthId) {
+          setCurrentMonthId(initialMonthId);
+          if (onMonthChange) {
+            onMonthChange(initialMonthId);
+          }
+          await fetchBillsForMonth(initialMonthId, orderedMonthsData);
         }
 
         setIsLoading(false);
@@ -104,9 +128,7 @@ const BillList = ({ year, name, description, amount, createdAt, clearModalData }
   const fetchBillsForMonth = async (monthId, currentMonthsData = monthsData, removedBillId = null) => {
     try {
       const monthIndex = currentMonthsData.findIndex(month => month.id === monthId);
-      if (monthIndex === -1) {
-        throw new Error(`Mes con id ${monthId} no encontrado`);
-      }
+      if (monthIndex === -1) return;
 
       const billsCollectionRef = collection(db, `users/${user.uid}/general-list/years/years-list/${year}/months/${monthId}/bills`);
       const billsSnapshot = await getDocs(billsCollectionRef);
@@ -166,78 +188,52 @@ const BillList = ({ year, name, description, amount, createdAt, clearModalData }
     await fetchBillsForMonth(month, monthsData);
   };
 
-  const openMenu = (monthIndex) => {
-    const updatedMenus = [...menuVisible];
-    updatedMenus[monthIndex] = true;
-    setMenuVisible(updatedMenus);
-  };
-
-  const closeMenu = (monthIndex) => {
-    const updatedMenus = [...menuVisible];
-    updatedMenus[monthIndex] = false;
-    setMenuVisible(updatedMenus);
-  };
-
-  const sortBills = async (type, monthId) => {
-    handleSortBills(type, monthId);
-    closeMenu(monthId);
-  };
-
-  const handleSortBills = async (type, monthId) => {
+  const applySort = async (type) => {
     try {
-      const monthIndex = monthsData.findIndex(month => month.id === monthId);
-      if (monthIndex === -1) {
-        throw new Error(`Mes con id ${monthId} no encontrado`);
-      }
+      const monthIndex = monthsData.findIndex(month => month.id === currentMonthId);
+      if (monthIndex === -1) return;
 
       const bills = monthsData[monthIndex].bills;
+      let sorted = [];
 
       switch (type) {
         case 'noPaid':
-          const sortedByPaid = [...bills].sort((a, b) => (a.data.paid > b.data.paid) ? 1 : -1);
-          updateMonthsData(monthIndex, sortedByPaid);
+          sorted = [...bills].sort((a, b) => (a.data.paid > b.data.paid) ? 1 : -1);
           break;
         case 'paid':
-          const sortedByNoPaid = [...bills].sort((a, b) => (a.data.paid < b.data.paid) ? 1 : -1);
-          updateMonthsData(monthIndex, sortedByNoPaid);
+          sorted = [...bills].sort((a, b) => (a.data.paid < b.data.paid) ? 1 : -1);
           break;
         case 'highestAmount':
-          const sortedByHighestAmount = [...bills].sort((a, b) => b.data.amount - a.data.amount);
-          updateMonthsData(monthIndex, sortedByHighestAmount);
+          sorted = [...bills].sort((a, b) => b.data.amount - a.data.amount);
           break;
         case 'lowestAmount':
-          const sortedByLowestAmount = [...bills].sort((a, b) => a.data.amount - b.data.amount);
-          updateMonthsData(monthIndex, sortedByLowestAmount);
+          sorted = [...bills].sort((a, b) => a.data.amount - b.data.amount);
           break;
         case 'creation':
-          const sortedByCreation = [...bills].sort((a, b) => (a.data.createdAt > b.data.createdAt) ? 1 : -1);
-          updateMonthsData(monthIndex, sortedByCreation);
+          sorted = [...bills].sort((a, b) => (a.data.createdAt > b.data.createdAt) ? 1 : -1);
           break;
         case 'alphabeticalAsc':
-          const sortedAlphabeticalAsc = [...bills].sort((a, b) => {
+          sorted = [...bills].sort((a, b) => {
             if (a.data.name && b.data.name) {
               return a.data.name.localeCompare(b.data.name);
-            } else {
-              return 0;
             }
+            return 0;
           });
-          updateMonthsData(monthIndex, sortedAlphabeticalAsc);
           break;
         case 'alphabeticalDesc':
-          const sortedAlphabeticalDesc = [...bills].sort((a, b) => {
+          sorted = [...bills].sort((a, b) => {
             if (a.data.name && b.data.name) {
               return b.data.name.localeCompare(a.data.name);
-            } else {
-              return 0;
             }
+            return 0;
           });
-          updateMonthsData(monthIndex, sortedAlphabeticalDesc);
           break;
         default:
-          console.error('tipo de ordenación no reconocido');
           break;
       }
-      closeMenu(monthId);
+      
+      updateMonthsData(monthIndex, sorted);
+      setSortModalVisible(false);
     } catch (error) {
       console.error('Error ordenando los gastos: ', error);
     }
@@ -253,112 +249,211 @@ const BillList = ({ year, name, description, amount, createdAt, clearModalData }
     await fetchBillsForMonth(currentMonthId);
   };
 
-  const renderMonthCard = (month, index) => {
-    const isExpanded = expandedMonths[month.id];
-    const bills = month.bills || [];
-    const amounts = month.amounts || {};
-
-    const getTotalAmountStyle = () => ({
-      color: amounts.totalAmount < 0 ? 'red' : 'green',
-    });
-
-    const getOutstandingBalanceStyle = () => ({
-      color: amounts.outstandingBalance < 0 ? 'red' : 'green',
-    });
-
-    const getAmountPaidStyle = () => ({
-      color: amounts.amountPaid < 0 ? 'red' : 'green',
-    });
-
-    const getRemainingStyle = () => ({
-      color: amounts.remaining < 0 ? 'red' : 'green',
-    });
-
+  const renderMonthSelector = () => {
     return (
-      <TouchableOpacity
-        key={month.id}
-        onPress={() => {
-          if (!isExpanded) {
-            fetchBillsForMonth(month.id);
-          }
-          toggleExpandMonth(month.id);
-        }}
-        style={[stylesBillsList.cardContainer, { height: isExpanded ? 400 : 50 }]}
-      >
-        <View style={stylesBillsList.cardHeader}>
-          <Text style={stylesBillsList.cardTitle}>{month.data.name}</Text>
-          <View style={stylesBillsList.iconsCard}>
-            <ExtraIncome 
-              year={year}
-              month={month.id}
-              updateAmounts={updateAmounts}
-            />
-            <Menu
-              visible={menuVisible[index] || false}
-              onDismiss={() => closeMenu(index)}
-              anchor={
-                <TouchableOpacity onPress={() => openMenu(index)}>
-                  <Icon name="sort" size={20} color="#000" />
-                </TouchableOpacity>
-              }
-            >
-              <Menu.Item onPress={() => { sortBills('noPaid', month.id); }} title="Ordenar por no pagado" />
-              <Menu.Item onPress={() => { sortBills('paid', month.id); }} title="Ordenar por pagado" />
-              <Menu.Item onPress={() => { sortBills('highestAmount', month.id); }} title="Ordenar por mayor importe" />
-              <Menu.Item onPress={() => { sortBills('lowestAmount', month.id); }} title="Ordenar por menor importe" />
-              <Menu.Item onPress={() => { sortBills('creation', month.id); }} title="Ordenar por creación" />
-              <Menu.Item onPress={() => { sortBills('alphabeticalAsc', month.id); }} title="Ordenar alfabéticamente (A-Z)" />
-              <Menu.Item onPress={() => { sortBills('alphabeticalDesc', month.id); }} title="Ordenar alfabéticamente (Z-A)" />
-            </Menu>
-          </View>
-          
-        </View>
-        {isExpanded && (
-          <View style={stylesBillsList.flatListContainer}>
-            <View style={stylesBillsList.containerText}>
-              <Text style={stylesBillsList.text}>Total: <Text style={getTotalAmountStyle()}>{parseFloat(amounts.totalAmount).toFixed(2).replace(".", ",")}€</Text></Text>
-              <Text style={stylesBillsList.text}>Sin pagar: <Text style={getOutstandingBalanceStyle()}>{parseFloat(amounts.amountUnpaid).toFixed(2).replace(".", ",")}€</Text></Text>
-              <Text style={stylesBillsList.text}>Pagado: <Text style={getAmountPaidStyle()}>{parseFloat(amounts.amountPaid).toFixed(2).replace(".", ",")}€</Text></Text>
-              <Text style={stylesBillsList.text}>Restante: <Text style={getRemainingStyle()}>{parseFloat(amounts.remaining).toFixed(2).replace(".", ",")}€</Text></Text>
-            </View>
-            <ScrollView>
-              <FlatList
-                data={bills}
-                renderItem={({ item }) => (
-                  <Bill
-                    bill={item}
-                    onPaidChange={(newPaidStatus) => handlePaidChange(month.id, item.id, newPaidStatus)}
-                    onBillDeleted={handleBillDeleted}
-                    onBillUpdated={handleBillAddedOrUpdated}
-                  />
-                )}
-                keyExtractor={item => item.id}
-                ListEmptyComponent={<Text style={stylesBillsList.emptyText}>No hay gastos para este mes</Text>}
-              />
-            </ScrollView>
-          </View>
-        )}
-      </TouchableOpacity>
+      <View style={stylesBillsList.monthSelectorContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={stylesBillsList.monthScrollContent}>
+          {monthsData.map((month) => {
+            const isSelected = month.id === currentMonthId;
+            const translatedName = monthTranslations[month.data.name.toLowerCase()] || month.data.name;
+            return (
+              <TouchableOpacity
+                key={month.id}
+                style={[
+                  stylesBillsList.monthChip,
+                  isSelected && stylesBillsList.monthChipActive
+                ]}
+                onPress={() => {
+                  setCurrentMonthId(month.id);
+                  fetchBillsForMonth(month.id);
+                  if (onMonthChange) {
+                    onMonthChange(month.id);
+                  }
+                }}
+              >
+                <Text style={[
+                  stylesBillsList.monthChipText,
+                  isSelected && stylesBillsList.monthChipTextActive
+                ]}>
+                  {translatedName.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
     );
   };
 
-  const toggleExpandMonth = (monthId) => {
-    setExpandedMonths(prevState => ({
-      ...prevState,
-      [monthId]: !prevState[monthId]
-    }));
+  const renderHeader = () => {
+    const selectedMonthObj = monthsData.find(m => m.id === currentMonthId);
+    if (!selectedMonthObj) return renderMonthSelector();
+
+    const amounts = selectedMonthObj.amounts || {};
+    const totalAmount = parseFloat(amounts.totalAmount || 0);
+    const amountPaid = parseFloat(amounts.amountPaid || 0);
+    const amountUnpaid = parseFloat(amounts.amountUnpaid || 0);
+    const remaining = parseFloat(amounts.remaining || 0);
+
+    const translatedMonthName = monthTranslations[selectedMonthObj.data.name.toLowerCase()] || selectedMonthObj.data.name;
+
+    return (
+      <View style={stylesBillsList.headerWrapper}>
+        {/* Selector de Meses Horizontal */}
+        {renderMonthSelector()}
+
+        {/* Tarjeta de Resumen Financiero Estilo Fintech */}
+        <View style={stylesBillsList.fintechCard}>
+          <View style={stylesBillsList.fintechCardHeader}>
+            <Text style={stylesBillsList.fintechCardMonth}>
+              {translatedMonthName.toUpperCase()} {year}
+            </Text>
+            <View style={stylesBillsList.fintechCardActions}>
+              {/* Botón 1: Gastos Extra */}
+              <ExtraIncome 
+                year={year}
+                month={currentMonthId}
+                updateAmounts={updateAmounts}
+                color="#5caece"
+                style={stylesBillsList.toolbarButton}
+              />
+
+              {/* Botón: Ordenar Gastos */}
+              <TouchableOpacity 
+                style={stylesBillsList.toolbarButton} 
+                onPress={() => setSortModalVisible(true)}
+              >
+                <FontAwesome name="sort" size={18} color="#5caece" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Balance Principal: Restante */}
+          <View style={stylesBillsList.fintechMainBalanceContainer}>
+            <Text style={stylesBillsList.fintechBalanceLabel}>RESTANTE / DISPONIBLE</Text>
+            <Text style={[
+              stylesBillsList.fintechBalanceValue,
+              { color: remaining < 0 ? '#ff6b6b' : '#2ecc71' }
+            ]}>
+              {remaining.toFixed(2).replace(".", ",")}€
+            </Text>
+          </View>
+
+          {/* Grid de Detalle de Gastos */}
+          <View style={stylesBillsList.fintechDetailsGrid}>
+            <View style={stylesBillsList.fintechGridItem}>
+              <Text style={stylesBillsList.fintechGridLabel}>Total Gastos</Text>
+              <Text style={[stylesBillsList.fintechGridValue, { color: '#ffffff' }]}>
+                {totalAmount.toFixed(2).replace(".", ",")}€
+              </Text>
+            </View>
+
+            <View style={stylesBillsList.fintechGridItem}>
+              <Text style={stylesBillsList.fintechGridLabel}>Pagado</Text>
+              <Text style={[stylesBillsList.fintechGridValue, { color: '#2ecc71' }]}>
+                {amountPaid.toFixed(2).replace(".", ",")}€
+              </Text>
+            </View>
+
+            <View style={stylesBillsList.fintechGridItem}>
+              <Text style={stylesBillsList.fintechGridLabel}>Por Pagar</Text>
+              <Text style={[stylesBillsList.fintechGridValue, { color: '#f1c40f' }]}>
+                {amountUnpaid.toFixed(2).replace(".", ",")}€
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <Text style={stylesBillsList.sectionTitle}>Listado de Gastos</Text>
+      </View>
+    );
   };
 
   if (isLoading) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
+    return <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 50 }} />;
   }
 
+  const selectedMonthObj = monthsData.find(m => m.id === currentMonthId);
+  const bills = selectedMonthObj?.bills || [];
+
   return (
-    <FlatList
-      data={monthsData}
-      renderItem={({ item, index }) => renderMonthCard(item, index)}
-      keyExtractor={item => item.id}
-    />
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={bills}
+        renderItem={({ item }) => (
+          <Bill
+            bill={item}
+            onPaidChange={(newPaidStatus) => handlePaidChange(currentMonthId)}
+            onBillDeleted={handleBillDeleted}
+            onBillUpdated={handleBillAddedOrUpdated}
+          />
+        )}
+        keyExtractor={item => item.id}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={<Text style={stylesBillsList.emptyText}>No hay gastos para este mes</Text>}
+        contentContainerStyle={{ paddingBottom: 100 }}
+      />
+
+      {/* Modal de Ordenación Estilo Premium */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={sortModalVisible}
+        onRequestClose={() => setSortModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={stylesBillsList.sortModalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setSortModalVisible(false)}
+        >
+          <View style={stylesBillsList.sortModalContent}>
+            <Text style={stylesBillsList.sortModalTitle}>Ordenar Gastos</Text>
+
+            <TouchableOpacity style={stylesBillsList.sortOptionItem} onPress={() => applySort('noPaid')}>
+              <MaterialCommunityIcons name="checkbox-blank-outline" size={20} color="#5caece" />
+              <Text style={stylesBillsList.sortOptionText}>Por no pagado primero</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={stylesBillsList.sortOptionItem} onPress={() => applySort('paid')}>
+              <MaterialCommunityIcons name="checkbox-marked" size={20} color="#5caece" />
+              <Text style={stylesBillsList.sortOptionText}>Por pagado primero</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={stylesBillsList.sortOptionItem} onPress={() => applySort('highestAmount')}>
+              <MaterialCommunityIcons name="trending-up" size={20} color="#5caece" />
+              <Text style={stylesBillsList.sortOptionText}>Por mayor importe</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={stylesBillsList.sortOptionItem} onPress={() => applySort('lowestAmount')}>
+              <MaterialCommunityIcons name="trending-down" size={20} color="#5caece" />
+              <Text style={stylesBillsList.sortOptionText}>Por menor importe</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={stylesBillsList.sortOptionItem} onPress={() => applySort('creation')}>
+              <MaterialCommunityIcons name="calendar-plus" size={20} color="#5caece" />
+              <Text style={stylesBillsList.sortOptionText}>Por orden de creación</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={stylesBillsList.sortOptionItem} onPress={() => applySort('alphabeticalAsc')}>
+              <MaterialCommunityIcons name="sort-alphabetical-ascending" size={20} color="#5caece" />
+              <Text style={stylesBillsList.sortOptionText}>Alfabéticamente (A-Z)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={stylesBillsList.sortOptionItem} onPress={() => applySort('alphabeticalDesc')}>
+              <MaterialCommunityIcons name="sort-alphabetical-descending" size={20} color="#5caece" />
+              <Text style={stylesBillsList.sortOptionText}>Alfabéticamente (Z-A)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={stylesBillsList.sortModalCloseButton} 
+              onPress={() => setSortModalVisible(false)}
+            >
+              <Text style={stylesBillsList.sortModalCloseText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
   );
 };
 

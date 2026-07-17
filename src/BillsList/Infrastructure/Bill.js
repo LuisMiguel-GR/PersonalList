@@ -96,8 +96,10 @@ const Bill = ({ bill, onPaidChange, onBillDeleted, onBillUpdated }) => {
             checked={isChecked}
             onPress={toggleCheckBox}
             containerStyle={styles.checkboxContainer}
-            checkedColor="#2ad607"
-            uncheckedColor="#eb2a11"
+            checkedIcon="check-circle"
+            uncheckedIcon="circle-o"
+            checkedColor="#2ecc71"
+            uncheckedColor="rgba(255, 255, 255, 0.45)"
           />
           <View style={{ flex: 1 }}>
             <Text style={styles.textBill}>{bill.data.name}</Text>

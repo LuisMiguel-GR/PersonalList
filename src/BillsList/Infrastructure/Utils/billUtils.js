@@ -23,8 +23,20 @@ export const fetchMonthsData = async (user, year) => {
       "july", "august", "september", "october", "november", "december"
     ];
 
+    const currentYear = new Date().getFullYear().toString();
+    const currentMonthIndex = new Date().getMonth();
+
     const orderedMonthsData = monthsData.sort((a, b) => {
-      return monthNames.indexOf(a.data.name.toLowerCase()) - monthNames.indexOf(b.data.name.toLowerCase());
+      const aIndex = monthNames.indexOf(a.data.name.toLowerCase());
+      const bIndex = monthNames.indexOf(b.data.name.toLowerCase());
+
+      if (year === currentYear) {
+        const distanceFromCurrent = (index) =>
+          index <= currentMonthIndex ? currentMonthIndex - index : index + 12;
+        return distanceFromCurrent(aIndex) - distanceFromCurrent(bIndex);
+      }
+
+      return bIndex - aIndex;
     });
 
     return orderedMonthsData;

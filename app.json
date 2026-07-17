@@ -23,7 +23,7 @@
         "foregroundImage": "./assets/adaptative-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "newArchEnabled":true,
+      "newArchEnabled": true,
       "package": "com.mikige.personallist",
       "permissions": [
         "USE_FINGERPRINT",
@@ -34,7 +34,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-asset"
     ],
     "extra": {
       "eas": {

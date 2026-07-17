@@ -14,19 +14,21 @@ const stylesBillsList = StyleSheet.create({
     padding:2
   },
   textBill: {
-    color: '#5caece',
-    fontSize: 16,
+    color: '#ffffff',
+    fontSize: 17,
     fontFamily: 'Pacifico',
   },
   descriptionText: {
     fontSize: 13,
-    color: '#666',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontFamily: 'Pacifico',
   },
   amountText: {
-    fontSize: 16,
+    fontSize: 18,
+    color: '#ffd700',
     marginLeft: 'auto',
     fontFamily: 'Pacifico',
+    fontWeight: 'bold',
   },
   rightActions: {
     justifyContent: 'center',
