@@ -31,7 +31,13 @@ const BillsListScreen = ({ navigation }) => {
   const [sliderValuePeriodicity, setSliderValuePeriodicity] = useState(1);
   const [isCopyModalVisible, setCopyModalVisible] = useState(false);
 
-  const { salary, bills, handleAddSalary, handleAddBill } = BillsScreenLogic();
+  const { 
+  salary, 
+  bills, 
+  handleAddSalary, 
+  handleAddBill,
+  getRemainingAmountByUser
+} = BillsScreenLogic();
 
   useInitializeUser(user?.uid);
 
@@ -48,15 +54,20 @@ const BillsListScreen = ({ navigation }) => {
             <MaterialCommunityIcons name="content-copy" size={20} color="#ffffff" />
           </TouchableOpacity>
           <BarUpGeneral
-            salary={salary} bills={bills} onUpdateSalary={updateSalary}
+            salary={salary} 
+            bills={bills} 
+            onUpdateSalary={updateSalary}
           />
         </View>
       ),
     });
   }, [navigation, bills, salary, selectedMonthId]);
 
-  const updateSalary = (newSalary) => {
-    handleAddSalary(newSalary);
+  const updateSalary = async (newSalary) => {
+    const success = await handleAddSalary(newSalary);
+    if (success) {
+      console.log('Salario actualizado con éxito');
+    }
   };
 
   useEffect(() => {
@@ -193,6 +204,9 @@ const BillsListScreen = ({ navigation }) => {
                       setCreatedAt('');
                       setModalVisible(false);
                     }}
+                    remainingAmount={user?.uid && selectedYear && selectedMonthId ? 
+                    getRemainingAmountByUser(user.uid, selectedYear, selectedMonthId.toLowerCase()) : 
+                    '0.00'}
                   />
                 </View>
               ) : (
@@ -207,8 +221,8 @@ const BillsListScreen = ({ navigation }) => {
           <View style={styles.addBillButtonContainer}>
             <TouchableOpacity onPress={toggleModal} style={styles.addBillButton}>
               <MaterialCommunityIcons name="bank-plus" size={24} color="black" style={styles.addBillButtonIcon} />
-            </TouchableOpacity>
-          </View>
+                  </TouchableOpacity>
+                </View>
 
           {/* Modal para Añadir Gasto */}
           <Modal
@@ -329,3 +343,4 @@ const BillsListScreen = ({ navigation }) => {
 };
 
 export default BillsListScreen;
+

@@ -65,7 +65,7 @@ const BillsListLogic = () => {
 
         const monthNames = [
             "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december"
+            "july", "august", "semay", "october", "november", "december"
         ];
         const newMonthCreatedAt = monthNames[new Date(newCreatedAt).getMonth()];
         const yearCreatedAt  = new Date(newCreatedAt).getFullYear();
@@ -134,7 +134,7 @@ const handleUpdateBill = async (bill, newBillData) => {
 
     const monthNames = [
       "january", "february", "march", "april", "may", "june",
-      "july", "august", "september", "october", "november", "december"
+      "july", "august", "semay", "october", "november", "december"
     ];
     const monthBillCreatedAt = monthNames[date.getMonth()];
 
@@ -234,7 +234,7 @@ const handleUpdateBill = async (bill, newBillData) => {
 
       const monthNames = [
         "january", "february", "march", "april", "may", "june",
-        "july", "august", "september", "october", "november", "december"
+        "july", "august", "semay", "october", "november", "december"
       ];
       const monthBillCreatedAt = monthNames[date.getMonth()];
 
@@ -421,7 +421,7 @@ const handleUpdateBill = async (bill, newBillData) => {
           break;
       }
     } catch (error) {
-      console.error('Error al ordenar los gastos: ', error);
+      console.error ('Error al ordenar los gastos:', error);
     }
   };
   
@@ -431,46 +431,51 @@ const handleUpdateBill = async (bill, newBillData) => {
     setMonthsData(updatedMonthsData);
   };
 
-  const handleAddSalary = async (salary) => {
-    if (!salary) {
+  const handleAddSalary = async (salaryInput) => {
+    if (!salaryInput) {
       console.error('Debes introducir una cantidad de salario');
-      return;
+      return false;
     }
-    if (user) {
+
+    if (!user?.uid) {
+      console.error('Usuario no autenticado');
+      return false;
+    }
+
+    try {
       const userId = user.uid;
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear().toString();
       const monthNames = [
         "january", "february", "march", "april", "may", "june",
         "july", "august", "september", "october", "november", "december"
       ];
-      const currentMonthName = monthNames[currentMonth];
-  
-      try {
-        const userDocRef = doc(db, 'users', userId);
-        const salaryRef = doc(userDocRef, 'general-list', 'salary');
-  
-        let salaryAmount = parseFloat(salary.replace(',', '.'));
-        salaryAmount = Math.round(salaryAmount * 100) / 100;
-        await setDoc(salaryRef, { amount: salaryAmount });
-  
-        const monthDocRef = doc(db, `users/${userId}/general-list/years/years-list/${currentYear}/months/${currentMonthName}`);
-        const monthDocSnapshot = await getDoc(monthDocRef);
-  
-        if (monthDocSnapshot.exists()) {
-          await setDoc(monthDocRef, { salary: salaryAmount }, { merge: true });
-          console.log(`Salario actualizado para el mes de ${currentMonthName} del año ${currentYear}`);
-        } else {
-          console.log(`El documento para el mes de ${currentMonthName} del año ${currentYear} no existe`);
-        }
-      } catch (error) {
-        console.error('Error al agregar el salario:', error);
-      }
-    } else {
-      console.error('Usuario no encontrado al intentar añadir tu salario.');
+      const currentMonth = monthNames[currentDate.getMonth()];
+      const salaryAmount = parseFloat(salaryInput.toString().replace(',', '.')) || 0;
+      const roundedSalary = Math.round(salaryAmount * 100) / 100;
+
+      // Guardar salario global
+      await setDoc(doc(db, 'users', userId, 'general-list', 'salary'), {
+        amount: roundedSalary,
+        lastUpdated: new Date()
+      });
+
+      // Guardar salario en el mes actual
+      const monthDocRef = doc(db, 'users', userId, 'general-list', 'years', 'years-list', currentYear, 'months', currentMonth);
+      await setDoc(monthDocRef, { salary: roundedSalary }, { merge: true });
+
+      // Actualizar estado local
+      setSalary(roundedSalary);
+      Toast.show(`Salario actualizado: ${roundedSalary}€`, Toast.SHORT);
+      return true;
+
+    } catch (error) {
+      console.error('Error al guardar salario:', error);
+      Toast.show('Error al guardar salario', Toast.SHORT);
+      return false;
     }
   };
-  
+
   const getSalaryByUser = async (userId) => {
     if (!userId) {
       console.error('El ID del usuario no puede estar vacío.');
@@ -496,9 +501,9 @@ const handleUpdateBill = async (bill, newBillData) => {
   const getTotalAmountByUser = async (userId) => {
     if (!userId) {
       console.error('El ID del usuario no puede estar vacío.');
-      return;
-    }
-
+        return;
+      }
+  
     try {
       const totalAmountRef = doc(db, 'users', userId, 'general-list', 'totalAmount');
       const totalAmountSnap = await getDoc(totalAmountRef);
@@ -516,28 +521,27 @@ const handleUpdateBill = async (bill, newBillData) => {
     }
   };
 
-  const getRemainingAmountByUser = async (userId) => {
-    if (!userId) {
-      console.error('El ID del usuario no puede estar vacío.');
-      return;
-    }
+  const getRemainingAmountByUser = async (userId, year, month) => {
+  if (!userId || !year || !month) return '0.00';
 
-    try {
-      const remainingAmountRef = doc(db, 'users', userId, 'general-list', 'remainingAmount');
-      const remainingAmountSnap = await getDoc(remainingAmountRef);
+  try {
+    const monthDocRef = doc(db, 'users', userId, 'general-list', 'years', 'years-list', year, 'months', month);
+    const totalAmountRef = doc(db, 'users', userId, 'general-list', 'years', 'years-list', year, 'months', month, 'amounts', 'totalAmount');
 
-      if (remainingAmountSnap.exists()) {
-        const remainingAmountData = remainingAmountSnap.data();
-        
-        return parseFloat(remainingAmountData.amount).toFixed(2);
-      } else {
-        return 0;
-      }
-    } catch (error) {
-      console.error('Error al obtener el importe restante:', error);
-      return null;
-    }
-  };
+    const [monthDoc, totalSnap] = await Promise.all([
+      getDoc(monthDocRef),
+      getDoc(totalAmountRef)
+    ]);
+
+    const salary = monthDoc.exists() ? parseFloat(monthDoc.data()?.salary || 0) : 0;
+    const expenses = totalSnap.exists() ? parseFloat(totalSnap.data()?.amount || 0) : 0;
+
+    return Math.max(0, salary - expenses).toFixed(2);
+  } catch (error) {
+    console.error('Error calculando restante:', error);
+    return '0.00';
+  }
+};
   
   const handleAddExtraIncome = async (extraIncome, year, month) => {
     const userId = user.uid;
@@ -593,3 +597,4 @@ const handleUpdateBill = async (bill, newBillData) => {
 };
 
 export default BillsListLogic;
+
