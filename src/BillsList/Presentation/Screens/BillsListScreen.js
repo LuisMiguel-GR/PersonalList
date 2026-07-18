@@ -258,9 +258,12 @@ const BillsListScreen = ({ navigation }) => {
                   style={stylesCustomModal.input}
                   placeholder="Importe"
                   placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   value={amount}
-                  onChangeText={setAmount}
+                  onChangeText={(text) => {
+                    const cleaned = text.replace(/[^0-9.,]/g, '');
+                    setAmount(cleaned);
+                  }}
                 />
                 
                 <View style={{ marginTop: 10 }}>
