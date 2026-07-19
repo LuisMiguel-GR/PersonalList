@@ -5,7 +5,8 @@ import {
   TouchableOpacity, 
   ScrollView, 
   FlatList,
-  SafeAreaView
+  SafeAreaView,
+  Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUser } from '../../../Login/Presentation/Contexts/UserContext';
@@ -23,7 +24,9 @@ const CarListScreen = ({ navigation }) => {
     fetchBillsForYear,
     handleAddCarBill,
     getSalaryByUser,
-    handleAddSalary
+    handleAddSalary,
+    updateCarBill,
+    deleteCarBill
   } = CarListScreenLogic();
 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
@@ -35,6 +38,7 @@ const CarListScreen = ({ navigation }) => {
     currentKms: '',
     nextKms: ''
   });
+  const [editingBill, setEditingBill] = useState(null);
   
   useEffect(() => {
     if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
@@ -61,12 +65,60 @@ const CarListScreen = ({ navigation }) => {
     setModalVisible(true);
   };
 
-  const handleSubmit = () => {
-    handleAddCarBill({
-      ...formData,
-      createdAt: new Date()
+  const handleEditPress = (bill) => {
+    setEditingBill(bill);
+    setFormData({
+      name: bill.name,
+      description: bill.description || '',
+      amount: bill.amount.toString(),
+      currentKms: bill.currentKms?.toString() || '',
+      nextKms: bill.nextKms?.toString() || ''
     });
+    setModalVisible(true);
+  };
+
+  const handleDeletePress = async (billId) => {
+    const confirmed = await showConfirmationAlert();
+    if (confirmed) {
+      await deleteCarBill(billId, selectedYear);
+    }
+  };
+
+  const showConfirmationAlert = () => {
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Eliminar gasto',
+        '¿Estás seguro de que quieres eliminar este gasto?',
+        [
+          { text: 'Cancelar', onPress: () => resolve(false), style: 'cancel' },
+          { text: 'Eliminar', onPress: () => resolve(true), style: 'destructive' }
+        ]
+      );
+    });
+  };
+
+  const handleSubmit = async () => {
+    const billData = {
+      name: formData.name,
+      description: formData.description,
+      amount: formData.amount,
+      currentKms: formData.currentKms,
+      nextKms: formData.nextKms,
+      createdAt: editingBill ? editingBill.createdAt : new Date()
+    };
+
+    if (editingBill) {
+      await updateCarBill(editingBill.id, billData, selectedYear);
+    } else {
+      await handleAddCarBill(billData);
+    }
+
+    resetForm();
+  };
+
+  const resetForm = () => {
     setModalVisible(false);
+    setEditingBill(null);
     setFormData({
       name: '',
       description: '',
@@ -78,17 +130,34 @@ const CarListScreen = ({ navigation }) => {
 
   const renderBillItem = ({ item }) => (
     <View style={styles.card}>
+      <View style={styles.cardActions}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleEditPress(item)}
+        >
+          <MaterialCommunityIcons name="pencil" size={20} color="#5caece" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => handleDeletePress(item.id)}
+        >
+          <MaterialCommunityIcons name="delete" size={20} color="#e74c3c" />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.cardHeader}>
         <MaterialCommunityIcons name="car" size={24} color="#5caece" />
         <View style={styles.cardTitleContainer}>
-        <Text style={styles.cardTitle}>{item.name}</Text>
-      </View>
-        <Text style={styles.cardAmount}>{item.amount}€</Text>
+          <Text style={styles.cardTitle}>{item.name}</Text>
+        </View>
       </View>
 
-      {item.description && (
-        <Text style={styles.cardDescription}>{item.description}</Text>
-      )}
+      <View style={styles.descriptionAmountContainer}>
+        {item.description && (
+                <Text style={styles.cardDescription}>{item.description}</Text>
+              )}
+        <Text style={styles.cardAmount}>{item.amount}€</Text>
+      </View>
 
       <View style={styles.cardFooter}>
         <Text style={styles.cardKms}>
@@ -109,7 +178,6 @@ const CarListScreen = ({ navigation }) => {
   return (
     <PaperProvider>
       <SafeAreaView style={styles.container}>
-        {/* Selector de años */}
         <View style={styles.yearSelectorContainer}>
           <ScrollView
             horizontal
@@ -131,7 +199,6 @@ const CarListScreen = ({ navigation }) => {
           </ScrollView>
         </View>
 
-        {/* Resumen anual */}
         <View style={styles.summaryContainer}>
           <Text style={styles.summaryText}>Total en {selectedYear}</Text>
           <Text style={styles.summaryAmount}>
@@ -139,7 +206,6 @@ const CarListScreen = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Lista de gastos */}
         <View style={styles.listContainer}>
           {carBills.length > 0 ? (
             <FlatList
@@ -156,7 +222,6 @@ const CarListScreen = ({ navigation }) => {
           )}
         </View>
 
-        {/* Botón flotante */}
         <TouchableOpacity
           style={styles.addButton}
           onPress={handleAddPress}
@@ -164,11 +229,14 @@ const CarListScreen = ({ navigation }) => {
           <MaterialCommunityIcons name="plus" size={30} color="white" />
         </TouchableOpacity>
 
-        {/* Modal para añadir gastos */}
         <CustomModal
           isVisible={isModalVisible}
-          toggleModal={() => setModalVisible(false)}
+          toggleModal={() => {
+            setModalVisible(false);
+            setEditingBill(null);
+          }}
           addCarBill={handleSubmit}
+          isEditing={!!editingBill}
           {...formData}
           setName={(text) => setFormData({...formData, name: text})}
           setDescription={(text) => setFormData({...formData, description: text})}
@@ -182,4 +250,5 @@ const CarListScreen = ({ navigation }) => {
 };
 
 export default CarListScreen;
+
 

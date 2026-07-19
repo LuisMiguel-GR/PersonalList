@@ -298,6 +298,31 @@ const BillsListLogic = () => {
     }
   };
 
+  const updateCarBill = async (billId, updatedData, year) => {
+    if (!user?.uid || !billId) return;
+    try {
+      const billRef = doc(db, 'users', user.uid, 'car-list', 'years', 'year-list', year, 'bills', billId);
+      await updateDoc(billRef, updatedData);
+      return true;
+    } catch (error) {
+      console.error("Error al actualizar el gasto:", error);
+      return false;
+    }
+  };
+
+  const deleteCarBill = async (billId, year) => {
+    if (!user?.uid || !billId) return;
+
+    try {
+      const billRef = doc(db, 'users', user.uid, 'car-list', 'years', 'year-list', year, 'bills', billId);
+      await deleteDoc(billRef);
+      return true;
+    } catch (error) {
+      console.error("Error al eliminar el gasto:", error);
+      return false;
+    }
+  };
+
   return {
     carBills,
     availableYears,
@@ -310,6 +335,8 @@ const BillsListLogic = () => {
     handleAddSalary,
     handleDeleteCarBill,
     getSalaryByUser,
+    updateCarBill,
+    deleteCarBill
   };
 };
 

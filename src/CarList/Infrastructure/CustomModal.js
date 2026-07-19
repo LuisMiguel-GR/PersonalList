@@ -2,9 +2,17 @@ import React from 'react';
 import { Modal, View, StyleSheet, TextInput, TouchableOpacity, Text, KeyboardAvoidingView } from 'react-native';
 import stylesCustomModal from './../Presentation/Styles/stylesCustomModal';
 
-const CustomModal = ({ isVisible, toggleModal, addCarBill, 
-  name, setName, description, setDescription, amount, setAmount, 
-  currentKms, setCurrentKms, nextKms, setNextKms }) => {
+const CustomModal = ({
+  isVisible,
+  toggleModal,
+  addCarBill,
+  isEditing,
+  name, setName,
+  description, setDescription,
+  amount, setAmount,
+  currentKms, setCurrentKms,
+  nextKms, setNextKms
+}) => {
   return (
     <Modal
       visible={isVisible}
@@ -14,7 +22,7 @@ const CustomModal = ({ isVisible, toggleModal, addCarBill,
     >
       <KeyboardAvoidingView behavior="padding" style={stylesCustomModal.modalOverlay}>
         <View style={stylesCustomModal.modalContent}>
-        <Text h3 style={stylesCustomModal.title}>Añadir cambio</Text>
+        <Text h3 style={stylesCustomModal.title}>{isEditing ? 'Editar gasto' : 'Añadir gasto'}</Text>
         <Text style={stylesCustomModal.label}>Nombre</Text>
           <TextInput
             style={stylesCustomModal.input}
@@ -68,3 +76,4 @@ const CustomModal = ({ isVisible, toggleModal, addCarBill,
 };
 
 export default CustomModal;
+

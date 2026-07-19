@@ -68,20 +68,18 @@ export const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 12,
     elevation: 2,
+    overflow: 'hidden',
   },
   cardHeader: {
   flexDirection: 'row',
   alignItems: 'center',
   marginBottom: 8,
-  },
-  yearScrollContent: {
-    paddingHorizontal: 15,
-    alignItems: 'center', // Optional for vertical centering
+    paddingRight: 60,
   },
   cardTitleContainer: {
     flex: 1,
     marginLeft: 10,
-    marginRight: 10, // Espacio entre título e importe
+    marginRight: 10,
   },
   cardTitle: {
     fontSize: 16,
@@ -91,81 +89,31 @@ export const styles = StyleSheet.create({
   cardAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#5caece',
-    alignSelf: 'flex-end', // Alinea a la derecha
+    color: '#d4b609',
+    alignSelf: 'flex-end',
+    marginLeft: 'auto'
   },
   cardDescription: {
     fontSize: 14,
     color: '#7f8c8d',
     marginBottom: 10,
-    marginLeft: 34, // Alineado con el icono del coche
-    paddingRight: 10, // Para que no quede pegado al borde
+    marginLeft: 0,
+    paddingRight: 10,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 12,
-    elevation: 2,
-  },
-  cardHeader: {
+  cardFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: 5,
   },
-  cardTitle: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2c3e50',
-  },
-  cardDescription: {
-  fontSize: 14,
-  color: '#7f8c8d',
-  marginBottom: 10,
-  paddingLeft: 34, // Para alinear con el icono
-},
-cardFooter: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'flex-end',
-  marginTop: 5,
-},
-cardKms: {
-  fontSize: 12,
-  color: '#95a5a6',
-  fontStyle: 'italic',
-},
-cardDate: {
-  fontSize: 12,
-  color: '#95a5a6',
-},
-  cardTitleContainer: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2c3e50',
+  cardKms: {
+    fontSize: 12,
+    color: '#95a5a6',
+    fontStyle: 'italic',
   },
   cardDate: {
     fontSize: 12,
     color: '#95a5a6',
-    marginTop: 3,
-  },
-  cardAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#5caece',
-    fontWeight: 'bold',
-    color: '#5caece',
-  },
-  cardDescription: {
-    fontSize: 14,
-    color: '#7f8c8d',
-    paddingLeft: 34,
   },
   emptyState: {
     flex: 1,
@@ -194,5 +142,24 @@ cardDate: {
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+  },
+  cardActions: {
+    position: 'absolute',
+    right: 15,
+    top: 15,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 15,
+    padding: 3,
+  },
+  actionButton: {
+    marginLeft: 8,
+    padding: 5,
+  },
+  descriptionAmountContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
   },
 });
