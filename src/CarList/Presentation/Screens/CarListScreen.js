@@ -1,112 +1,185 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
-import { Button, Text, View, Modal, TextInput, TouchableOpacity, ImageBackground } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  TouchableOpacity, 
+  ScrollView, 
+  FlatList,
+  SafeAreaView
+} from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useUser } from '../../../Login/Presentation/Contexts/UserContext';
 import CarListScreenLogic from '../../Domain/Hooks/CarListScreenLogic';
-import styles from '../../Presentation/Styles/stylesListFatherCar';
-import CarBillList from '../../Infrastructure/CarBillList';
-import { Menu, Provider, Appbar, IconButton } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+import { styles } from '../Styles/stylesCarBillsList';
+import { Provider as PaperProvider } from 'react-native-paper';
 import CustomModal from '../../Infrastructure/CustomModal';
-import BarUpCarList from '../../Infrastructure/BarUpCarList';
 
 const CarListScreen = ({ navigation }) => {
-  const { user, logout } = useUser();
+  const { user } = useUser();
+  const {
+    carBills,
+    availableYears,
+    salary,
+    fetchBillsForYear,
+    handleAddCarBill,
+    getSalaryByUser,
+    handleAddSalary
+  } = CarListScreenLogic();
+
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [isModalVisible, setModalVisible] = useState(false);
-  const [name, setNewCarBill] = useState('');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [currentKms, setCurrentKms] = useState('');
-  const [nextKms, setNextKms] = useState('');
-  const [salaryRef, setNewSalary] = useState('');
-  const [iconMenuVisible, setIconMenuVisible] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const textInputRef = useRef(null);
-
-  const { carBills, handleAddCarBill, handleSort, handleAddSalary, getSalaryByUser } = CarListScreenLogic();
-  const [salary, setSalary] = useState(0);
-  const [remainingMoney, setRemainingMoney] = useState(0);
-  const [totalExpenses, setTotalExpenses] = useState(0);
-
-  const updateSalary = (newSalary) => {
-    handleAddSalary(newSalary);
-  };
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    amount: '',
+    currentKms: '',
+    nextKms: ''
+  });
+  
+  useEffect(() => {
+    if (availableYears.length > 0 && !availableYears.includes(selectedYear)) {
+      setSelectedYear(availableYears[0]);
+    }
+  }, [availableYears]);
 
   useEffect(() => {
-    if (user) {
-      const userId = user.uid;
-      getSalaryByUser(userId).then((fetchedSalary) => setSalary(fetchedSalary));
+    if (selectedYear) {
+      fetchBillsForYear(selectedYear);
     }
-    const totalAmountSpent = carBills.reduce((total, carBill) => total + parseFloat(carBill.amount), 0);
-    const remaining = salary - totalAmountSpent;
+  }, [selectedYear]);
 
-    setRemainingMoney(remaining);
-    setTotalExpenses(totalAmountSpent);
-  }, [salary, carBills]);
-
-  const handleLogout = async () => {
-    await logout(navigation);
-  };
-
-  const toggleModal = () => {
-    setModalVisible(!isModalVisible);
-  };
-
-  const addCarBill = () => {
-    handleAddCarBill({ name, description, amount, currentKms, nextKms });
-    setNewCarBill('');
-    setDescription('');
-    setAmount('');
-    setCurrentKms('');
-    setNextKms('');
-    toggleModal();
-  };
-
-  const sortCarBills = (type) => {
-    handleSort(type);
-  };
-
-  useLayoutEffect(() => {
-    if (isModalVisible && textInputRef.current) {
-      textInputRef.current.focus();
+  // Obtener salario al cargar
+  useEffect(() => {
+    if (user?.uid) {
+      getSalaryByUser(user.uid).then(salary => {
+        if (salary) setSalary(salary);
+      });
     }
-  }, [isModalVisible]);
+  }, [user]);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        null
-      ),
+  const handleAddPress = () => {
+    setModalVisible(true);
+  };
+
+  const handleSubmit = () => {
+    handleAddCarBill({
+      ...formData,
+      createdAt: new Date()
     });
-  }, [navigation, iconMenuVisible, menuVisible, carBills, salary]);
+    setModalVisible(false);
+    setFormData({
+      name: '',
+      description: '',
+      amount: '',
+      currentKms: '',
+      nextKms: ''
+    });
+  };
+
+  const renderBillItem = ({ item }) => (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <MaterialCommunityIcons name="car" size={24} color="#5caece" />
+        <View style={styles.cardTitleContainer}>
+        <Text style={styles.cardTitle}>{item.name}</Text>
+      </View>
+        <Text style={styles.cardAmount}>{item.amount}€</Text>
+      </View>
+
+      {item.description && (
+        <Text style={styles.cardDescription}>{item.description}</Text>
+      )}
+
+      <View style={styles.cardFooter}>
+        <Text style={styles.cardKms}>
+          {item.currentKms ? `Actual: ${item.currentKms} km` : ''}
+          {item.currentKms && item.nextKms ? ' - ' : ''}
+          {item.nextKms ? `Próximo: ${item.nextKms} km` : ''}
+        </Text>
+        <Text style={styles.cardDate}>
+          {new Date(item.createdAt?.seconds * 1000 || item.createdAt).toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: 'short'
+          })}
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
-    <Provider>
-      <View style={styles.containerMain}>
-        <ImageBackground 
-          source={require('../../../../assets/fondos/fondo-claro-papel.png')} 
-          style={styles.imageBackground}
-          resizeMode="cover"
+    <PaperProvider>
+      <SafeAreaView style={styles.container}>
+        {/* Selector de años */}
+        <View style={styles.yearSelectorContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.yearScrollContent}
+          >
+            {availableYears.map(year => (
+              <TouchableOpacity
+                key={year}
+                style={[
+                  styles.yearButton,
+                  selectedYear === year && styles.yearButtonActive
+                ]}
+                onPress={() => setSelectedYear(year)}
+              >
+                <Text style={styles.yearButtonText}>{year}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Resumen anual */}
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryText}>Total en {selectedYear}</Text>
+          <Text style={styles.summaryAmount}>
+            {carBills.reduce((total, bill) => total + (parseFloat(bill.amount) || 0), 0).toFixed(2)}€
+          </Text>
+        </View>
+
+        {/* Lista de gastos */}
+        <View style={styles.listContainer}>
+          {carBills.length > 0 ? (
+            <FlatList
+              data={carBills}
+              renderItem={renderBillItem}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.listContent}
+            />
+          ) : (
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons name="car-off" size={50} color="#bdc3c7" />
+              <Text style={styles.emptyText}>No hay gastos registrados en {selectedYear}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Botón flotante */}
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleAddPress}
         >
-          <CarBillList carBills={carBills} />
-          <CustomModal
-            isVisible={isModalVisible}
-            toggleModal={toggleModal}
-            addCarBill={addCarBill}
-            name={name}
-            setName={setNewCarBill}
-            description={description}
-            setDescription={setDescription}
-            amount={amount}
-            setAmount={setAmount}
-            currentKms={currentKms}
-            setCurrentKms={setCurrentKms}
-            nextKms={nextKms}
-            setNextKms={setNextKms}
-          />
-        </ImageBackground>
-      </View>
-    </Provider>
+          <MaterialCommunityIcons name="plus" size={30} color="white" />
+        </TouchableOpacity>
+
+        {/* Modal para añadir gastos */}
+        <CustomModal
+          isVisible={isModalVisible}
+          toggleModal={() => setModalVisible(false)}
+          addCarBill={handleSubmit}
+          {...formData}
+          setName={(text) => setFormData({...formData, name: text})}
+          setDescription={(text) => setFormData({...formData, description: text})}
+          setAmount={(text) => setFormData({...formData, amount: text})}
+          setCurrentKms={(text) => setFormData({...formData, currentKms: text})}
+          setNextKms={(text) => setFormData({...formData, nextKms: text})}
+        />
+      </SafeAreaView>
+    </PaperProvider>
   );
 };
 
 export default CarListScreen;
+

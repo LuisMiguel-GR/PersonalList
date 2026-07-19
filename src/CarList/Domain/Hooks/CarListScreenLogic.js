@@ -6,15 +6,21 @@ import Toast from 'react-native-simple-toast';
 
 const BillsListLogic = () => {
   const [carBills, setCarBills] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
   const { user } = useUser();
   const [salary, setSalary] = useState(0);
 
   useEffect(() => {
     if (user) {
-
       const userId = user.uid;
 
-      const salaryRef = doc(db, 'users', userId, 'car-list', 'salary');
+      // Obtener años disponibles
+      const yearsRef = collection(db, 'users', userId, 'car-list', 'years', 'year-list');
+      const unsubscribeYears = onSnapshot(yearsRef, (snapshot) => {
+        const years = snapshot.docs.map(doc => doc.id);
+        setAvailableYears(years.sort((a, b) => b - a));
+      });
+        const salaryRef = doc(db, 'users', userId, 'car-list', 'salary');
       const fetchSalary = async () => {
         try {
           const salaryDoc = await getDoc(salaryRef);
@@ -23,28 +29,35 @@ const BillsListLogic = () => {
             setSalary(salaryData.amount);
           } else {
             // console.log('El salario no está definido para este usuario.');
-          }
-        } catch (error) {
-          console.error('Error al obtener el salario:', error);
-        }
-      };
+      }
+    } catch (error) {
+      console.error('Error al obtener el salario:', error);
+    }
+  };
 
       fetchSalary();
 
-      const carBillsRef = collection(db, 'users', userId, 'car-list', 'carBillsList', 'bills');
-      const q = query(carBillsRef, orderBy('createdAt', 'asc'));
-  
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const carBillsList = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setCarBills(carBillsList);
-      });
-  
-      return () => unsubscribe();
+      return () => unsubscribeYears();
     }
   }, [user]);
+
+  const fetchBillsForYear = async (year) => {
+    if (!user) return;
+
+    const userId = user.uid;
+    const billsRef = collection(db, 'users', userId, 'car-list', 'years', 'year-list', year, 'bills');
+    const q = query(billsRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const bills = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setCarBills(bills);
+    });
+
+    return unsubscribe;
+  };
 
   const handleAddCarBill = async (newCarBillData) => {
     if (!newCarBillData || !newCarBillData.name) {
@@ -54,18 +67,25 @@ const BillsListLogic = () => {
   
     if (user) {
       const userId = user.uid;
-      const newCarBill = { 
-        name: newCarBillData.name, 
-        paid: false, 
+      const year = new Date(newCarBillData.createdAt || new Date()).getFullYear().toString();
+
+      // Crear referencia al año si no existe
+      const yearRef = doc(db, 'users', userId, 'car-list', 'years', 'year-list', year);
+      await setDoc(yearRef, {}, { merge: true });
+
+      const newCarBill = {
+        name: newCarBillData.name,
+        paid: false,
         description: newCarBillData.description || '',
         amount: newCarBillData.amount || 0,
         currentKms: newCarBillData.currentKms || 0,
         nextKms: newCarBillData.nextKms || 0,
-        createdAt: newCarBillData.createdAt
-      };
-  
+        createdAt: newCarBillData.createdAt || new Date()
+};
+
       try {
-        await addDoc(collection(db, 'users', userId, 'car-list', 'carBillsList', 'bills'), newCarBill);
+        const billsRef = collection(db, 'users', userId, 'car-list', 'years', 'year-list', year, 'bills');
+        await addDoc(billsRef, newCarBill);
       } catch (error) {
         console.error('Error al agregar el gasto:', error);
       }
@@ -167,7 +187,6 @@ const BillsListLogic = () => {
   const handleSort = (type, year) => {
     switch (type) {
       case 'noPaid':
-        // Ordenar por NO pagados, y luego por createdAt
         const sortedByNoPaid = [...groupedCarBills[year]].sort((a, b) => {
           if (a.paid !== b.paid) {
             return a.paid ? 1 : -1;
@@ -178,7 +197,6 @@ const BillsListLogic = () => {
         setCardBills(sortedByNoPaid);
         break;
       case 'paid':
-        // Ordenar por pagados, y luego por createdAt
         const sortedByPaid = [...groupedCarBills[year]].sort((a, b) => {
           if (a.paid !== b.paid) {
             return a.paid ? -1 : 1;
@@ -189,7 +207,6 @@ const BillsListLogic = () => {
         setCardBills(sortedByPaid);
         break;
       case 'highestAmount':
-        // Ordenar por importe más alto, y luego por createdAt
         const sortedByHighestAmount = [...groupedCarBills[year]].sort((a, b) => {
           if (a.amount !== b.amount) {
             return b.amount - a.amount;
@@ -200,7 +217,6 @@ const BillsListLogic = () => {
         setCardBills(sortedByHighestAmount);
         break;
       case 'lowestAmount':
-        // Ordenar por importe más bajo, y luego por createdAt
         const sortedByLowestAmount = [...groupedCarBills[year]].sort((a, b) => {
           if (a.amount !== b.amount) {
             return a.amount - b.amount;
@@ -211,14 +227,12 @@ const BillsListLogic = () => {
         setCardBills(sortedByLowestAmount);
         break;
       case 'creation':
-        // Ordenar por orden de creación, y luego por otro criterio si es necesario
         const sortedByCreation = [...groupedCarBills[year]].sort((a, b) => {
           return a.createdAt.seconds - b.createdAt.seconds;
         });
         setCardBills(sortedByCreation);
         break;
       case 'alphabeticalAsc':
-        // Ordenar alfabéticamente de A a Z, y luego por createdAt
         const sortedAlphabeticalAsc = [...groupedCarBills[year]].sort((a, b) => {
           if (a.name && b.name) {
             return a.name.localeCompare(b.name);
@@ -229,7 +243,6 @@ const BillsListLogic = () => {
         setCardBills(sortedAlphabeticalAsc);
         break;
       case 'alphabeticalDesc':
-        // Ordenar alfabéticamente de Z a A, y luego por createdAt
         const sortedAlphabeticalDesc = [...groupedCarBills[year]].sort((a, b) => {
           if (a.name && b.name) {
             return b.name.localeCompare(a.name);
@@ -243,9 +256,7 @@ const BillsListLogic = () => {
         console.error('Palabra de ordenación no reconocida:', type);
         break;
     }
-    
   };
-  
 
   const handleAddSalary = async (salary) => {
     if (!salary) {
@@ -263,7 +274,6 @@ const BillsListLogic = () => {
     } else {
       console.error('Usuario no encontrado al intentar anadir tu salario.');
     }
-    
   };
 
   const getSalaryByUser = async (userId) => {
@@ -290,7 +300,9 @@ const BillsListLogic = () => {
 
   return {
     carBills,
+    availableYears,
     salary,
+    fetchBillsForYear,
     handleAddCarBill,
     handleUpdateCarBill,
     handleUpdatePaidStatus,
@@ -302,3 +314,4 @@ const BillsListLogic = () => {
 };
 
 export default BillsListLogic;
+
